@@ -1,0 +1,67 @@
+version: '3'
+services:
+    backend-service:
+        container_name: backend-service
+        build: ./docker/backend
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '80:80'
+        volumes:
+            - './backend:/var/www/html'
+        networks:
+            - common
+        depends_on:
+            - db-service
+
+            
+    db-service:
+        container_name: db-service
+        image: 'mysql/mysql-server:8.0'
+        ports:
+            - '${DB_PORT:-3306}:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ROOT_HOST: "%"
+            MYSQL_DATABASE: '${DB_DATABASE}'
+            MYSQL_USER: '${DB_USERNAME}'
+            MYSQL_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ALLOW_EMPTY_PASSWORD: 1
+        volumes:
+            - 'db-volume:/var/lib/mysql'
+        networks:
+            - common
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}"]
+            retries: 3
+            timeout: 5s
+
+    client-service:
+        container_name: client-service
+        build: 
+            context: ./
+            dockerfile: ./docker/client/Dockerfile
+        expose:
+            - '${CLIENT_PORT:-3000}'
+        volumes:
+            - ./client:/var/www/html
+        entrypoint: ["/bin/sh","-c"]
+        command: 
+            - |
+                cd /var/www/html
+                npm install
+                npm run  dev
+        ports:
+            - "3000:3000"
+        environment:
+            NODE_ENV: development
+        networks:
+            - common
+        depends_on:
+            - backend-service
+networks:
+    common:
+        driver: bridge
+volumes:
+    db-volume:
+        driver: local
