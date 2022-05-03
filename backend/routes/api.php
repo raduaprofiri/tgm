@@ -18,5 +18,4 @@ Route::get('items', [ItemController::class, 'index']);
 Route::post('items', [ItemController::class, 'store']);
 Route::put('items/{item}', [ItemController::class, 'update']);
 Route::delete('items/{item}', [ItemController::class, 'destroy']);
-Route::put('items/{item}/move-up', [ItemController::class, 'moveUp']);
-Route::put('items/{item}/move-down', [ItemController::class, 'moveDown']);
+Route::put('items/{item}/move-to/{order}', [ItemController::class, 'move']);

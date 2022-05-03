@@ -15,6 +15,10 @@ class UsersSeeder extends Seeder
      */
     public function run()
     {
+        if (User::count()) {
+            return;
+        }
+
         User::factory([
             'name' => 'Radu Aprofiri',
             'email' => 'raduaprofiri@gmail.com',

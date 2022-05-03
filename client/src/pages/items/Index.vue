@@ -2,50 +2,51 @@
   <div>
     <h1 class="text-center my-5">My items</h1>
     <ul class="list-group list-group-light">
-      <li
-        class="list-group-item d-flex justify-content-between align-items-center"
-        v-for="(item, key) in items"
-        :key="item.id"
+      <draggable
+        v-model="items"
+        group="items"
+        v-on:start="() => (drag = true)"
+        v-on:end="() => (drag = false)"
+        item-key="id"
+        v-on:change="moveItem"
       >
-        <input
-          type="text"
-          class="form-control my-2"
-          v-model="item.name"
-          style="margin-right: 15px"
-        />
-
-        <div class="controls d-flex">
-          <button
-            class="btn btn-sm btn-primary"
-            v-on:click="updateItem(item.id, item.name)"
+        <template #item="{ element }">
+          <li
+            class="list-group-item d-flex justify-content-between align-items-center"
           >
-            &#9998;
-          </button>
+            <input
+              type="text"
+              class="form-control my-2"
+              v-model="element.name"
+              style="margin-right: 15px"
+            />
 
-          <button
-            class="btn btn-sm btn-danger mx-1"
-            v-on:click="deleteItem(item.id)"
-          >
-            X
-          </button>
+            <div>{{ element.order }}</div>
 
-          <button
-            class="btn btn-sm btn-secondary mx-1"
-            v-on:click="move(item.id, 'up')"
-            :disabled="key === 0"
-          >
-            &uarr;
-          </button>
+            <div class="controls d-flex">
+              <button
+                class="btn btn-sm btn-primary"
+                v-on:click="updateItem(element.id, element.name)"
+              >
+                &#9998;
+              </button>
 
-          <button
-            class="btn btn-sm btn-secondary"
-            v-on:click="move(item.id, 'down')"
-            :disabled="key >= items.length - 1"
-          >
-            &darr;
-          </button>
-        </div>
-      </li>
+              <button
+                class="btn btn-sm btn-danger mx-1"
+                v-on:click="deleteItem(element.id)"
+              >
+                X
+              </button>
+
+              <button
+                class="btn btn-sm btn-secondary"
+              >
+                &#10055;
+              </button>
+            </div>
+          </li>
+        </template>
+      </draggable>
 
       <li
         class="list-group-item d-flex justify-content-between align-items-center"
@@ -81,28 +82,44 @@
 </template>
 
 <script>
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import draggable from "vuedraggable";
+
 import axios from "axios";
 
 axios.defaults.withCredentials = true;
 
 export default {
+  components: {
+    draggable,
+  },
   setup() {
     const items = ref([]);
+    const orderList = ref([]);
     const newItemName = ref();
+    const drag = ref(false);
+    const endpoint = "http://localhost/api/items";
 
     axios
-      .get("http://localhost/api/items")
+      .get(endpoint)
       .then((response) => {
         items.value = response.data.items;
       })
       .catch(() => {
-        window.location = "/sign-in";
+        // window.location = "/sign-in";
       });
+
+    function displayAlert(error, message) {
+      if (error.response?.data?.message) {
+        alert(error.response.data.message);
+      } else {
+        alert(message);
+      }
+    }
 
     const addItem = () => {
       axios
-        .post("http://localhost/api/items", {
+        .post(endpoint, {
           name: newItemName.value,
         })
         .then((response) => {
@@ -110,77 +127,46 @@ export default {
 
           items.value.push(response.data.item);
         })
-        .catch((error) => {
-          if (error.response?.data?.message) {
-            alert(error.response.data.message);
-          } else {
-            alert("Error adding item");
-          }
-        });
+        .catch((error) => displayAlert(error, "Failed to add item"));
     };
 
     const deleteItem = (id) => {
       axios
-        .delete(`http://localhost/api/items/${id}`)
+        .delete(`${endpoint}/${id}`)
         .then(() => {
           items.value = items.value.filter((item) => item.id !== id);
         })
-        .catch((error) => {
-          if (error.response?.data?.message) {
-            alert(error.response.data.message);
-          } else {
-            alert("Error deleting item");
-          }
-        });
-    };
-
-    const move = (id, direction) => {
-      axios
-        .put(`http://localhost/api/items/${id}/move-${direction}`)
-        .then(() => {
-          const item = items.value.find((item) => item.id === id);
-          const index = items.value.indexOf(item);
-
-          if (direction === "up") {
-            items.value.splice(index - 1, 0, items.value.splice(index, 1)[0]);
-          } else {
-            items.value.splice(index + 1, 0, items.value.splice(index, 1)[0]);
-          }
-        })
-        .catch((error) => {
-          if (error.response?.data?.message) {
-            alert(error.response.data.message);
-          } else {
-            alert("Error moving item");
-          }
-        });
+        .catch((error) => displayAlert(error, "Failed to delete item"));
     };
 
     const updateItem = (id, name) => {
       axios
-        .put(`http://localhost/api/items/${id}`, {
+        .put(`${endpoint}/${id}`, {
           name,
         })
         .then(() => {
           const item = items.value.find((item) => item.id === id);
           item.name = name;
         })
-        .catch((error) => {
-          if (error.response?.data?.message) {
-            alert(error.response.data.message);
-          } else {
-            alert("Error updating item");
-          }
-        });
+        .catch((error) => displayAlert(error, "Failed to update item"));
+    };
+
+    const moveItem = ({ moved }) => {
+      axios
+        .put(`${endpoint}/${moved.element.id}/move-to/${moved.newIndex}`)
+        .then(() => {})
+        .catch((error) => displayAlert(error, "Failed to move item"));
     };
 
     return {
+      orderList,
+      drag,
       items,
       newItemName,
       addItem,
       deleteItem,
-      move,
       updateItem,
+      moveItem,
     };
   },
 };

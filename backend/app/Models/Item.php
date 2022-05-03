@@ -56,4 +56,16 @@ class Item extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Returns the next order available for the items.
+     *
+     * @return integer
+     */
+    public static function nextItemOrder(): int
+    {
+        return self::query()
+            ->where('deleted_at', null)
+            ->max('order') + 1;
+    }
 }

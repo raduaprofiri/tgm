@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -57,31 +58,25 @@ class User extends Authenticatable
     }
 
     /**
-     * Returns the next order available for the items.
-     *
-     * @return integer
-     */
-    public function nextItemOrder(): int
-    {
-        return Item::query()
-            ->where('deleted_at', null)
-            ->max('order') + 1;
-    }
-
-    /**
      * Shifts the order of the items after the given one down.
      * 
-     * @param int $order
+     * @param int $old_order
+     * @param int $old_order
+     * @param string $type
      * @param boolean $up 
      */
-    public function shiftItemsOrder(int $order): void
+    public function shiftItemsOrder(int $old_order, int $new_order = 0, string $type = 'asc'): void
     {
-        $this->items()
-            ->where('order', '>', $order)
-            ->get()
-            ->each(static function (Item $item) {
-                $item->order -= 1;
-                $item->save();
-            });
+        if ($type == 'desc') {
+            $this->items()
+                ->where('order', '<=', $new_order)
+                ->where('order', '>=', $old_order)
+                ->update(['order' => DB::raw('`order` - 1')]);
+        } else {
+            $this->items()
+                ->where('order', '<=', $old_order)
+                ->where('order', '>=', $new_order)
+                ->update(['order' => DB::raw('`order` + 1')]);
+        }
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 use App\Models\Item;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ItemController extends Controller
 {
@@ -51,7 +52,7 @@ class ItemController extends Controller
         $item = new Item();
         $item->user_id = auth()->id();
         $item->name = $request->input('name');
-        $item->order = auth()->user()->nextItemOrder();
+        $item->order = Item::nextItemOrder();
         $item->save();
 
         return response()->json([
@@ -85,67 +86,11 @@ class ItemController extends Controller
     public function destroy(Item $item): JsonResponse
     {
         // shift order of every item after the deleted one down
-        auth()->user()->shiftItemsOrder($item->order);
+        auth()->user()->shiftItemsOrder($item->order, auth()->user()->items()->max('order'), 'desc');
 
         $item->delete();
 
         return response()->json([]);
-    }
-
-    /**
-     * Moves the item up in the list.
-     *
-     * @param  \App\Models\Item  $item
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function moveUp(Item $item): JsonResponse
-    {
-        $this->move($item, $item->order - 1);
-
-        return response()->json([
-            'item' => $item
-        ]);
-    }
-
-    /**
-     * Moves the item down in the list.
-     *
-     * @param  \App\Models\Item  $item
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function moveDown(Item $item): JsonResponse
-    {
-        $this->move($item, $item->order + 1);
-
-        return response()->json([
-            'item' => $item
-        ]);
-    }
-
-    /**
-     * Set an item order and shifts the order of the items after it.
-     * 
-     * @param \App\Models\Item $item
-     * @param int $order
-     */
-    private function move(Item $item, int $order): JsonResponse
-    {
-        $displaced_item = auth()->user()
-            ->items()
-            ->where('order', $order)
-            ->first();
-
-        if ($displaced_item) {
-            $displaced_item->order = $item->order;
-            $displaced_item->save();
-        }
-
-        $item->order = $order;
-        $item->save();
-
-        return response()->json([
-            'item' => $item
-        ]);
     }
 
     /**
@@ -157,13 +102,39 @@ class ItemController extends Controller
     private function restoreItem(Item $item): JsonResponse
     {
         // the item is restored and placed as the last one in the list
-        $item->order = auth()->user()->nextItemOrder();
+        $item->order = Item::nextItemOrder();
         $item->save();
 
         $item->restore();
 
         return response()->json([
             'item' => $item
+        ]);
+    }
+
+    public function move(Item $item, int $order): JsonResponse
+    {
+        $order++;
+
+        if ($order < 1) {
+            $order = 1;
+        }
+
+        if ($item->order == $order) {
+            return response()->json([
+                'item' => $item
+            ]);
+        }
+        $type = $order > $item->order ? 'desc' : 'asc';
+        auth()->user()->shiftItemsOrder($item->order, $order, $order > $item->order ? 'desc' : 'asc');
+
+        $item->order = $order;
+        $item->save();
+
+        return response()->json([
+            'item' => $item,
+            'order' => $order,
+            'type' => $type
         ]);
     }
 }
